@@ -1,0 +1,36 @@
+# -*- coding: utf-8 -*-
+
+desc "get app servers list and configure roles from them"
+task :find_servers do
+  # gatewayがない場合は手動定義に任せる
+  next unless roles(:gateway).any?
+
+  on primary(:gateway) do
+    servers = capture(:cat, "/etc/hosts").split(/\r?\n/).map{|l| l.split("\t").last}
+    roles = {
+      :front => %r{ecweb-front-},
+      :frontmobile => %r{ecweb-frontmobile},
+      :back => %r{ecweb-back},
+      :batch => %r{stg-search-manager|if-asteria|biweb}
+    }
+    roles.each do |role, regexp|
+      # 手動定義があったらそっち尊重
+      next if roles(role).any?
+
+      targets = servers.grep(regexp)
+      targets.each do |s|
+        server(s,
+          user: 'lwsuser001',
+          password: 'lwsuser001',
+          roles: role,
+          ssh_options: {},  # don't use proxy
+          gateway: Net::SSH::Gateway.new(
+            host.hostname,
+            host.username,
+            host.netssh_options
+            )
+          )
+      end
+    end
+  end
+end

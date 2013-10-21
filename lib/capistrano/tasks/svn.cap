@@ -1,0 +1,38 @@
+# -*- coding: utf-8 -*-
+
+namespace :svn do
+
+  envs = ["CT", "ST", "OT"]
+  dir_prefix = "override_settings_for_"
+  local_repo_dir = "/tmp/cap_tools/repos/svn"
+
+  desc "update svn repositories"
+  task :update_locals do
+    envs.each do |env|
+      invoke "svn:#{env}:update_local"
+    end
+  end
+
+  envs.each do |env|
+    namespace env do
+      repo = "#{dir_prefix}#{env}"
+      repo_dir = File.join(local_repo_dir, repo)
+
+      directory repo_dir
+      file repo_dir do |d|
+        run_locally do
+          execute :svn, :checkout, "http://svn.appmills.hitachi-solutions.co.jp/LumineWebProject/NEW_src/trunk/#{repo}", d
+        end
+      end
+
+      desc "Update the repo for #{repo}"
+      task :update_local => repo_dir do
+        run_locally do
+          within repo_dir do
+            execute :svn, :up
+          end
+        end
+      end
+    end
+  end
+end

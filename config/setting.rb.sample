@@ -1,0 +1,47 @@
+# -*- coding: utf-8 -*-
+
+set :proxy_host, 'proxy server(iproxy.intra. ....)'
+set :proxy_port, 8080
+set :proxy_user, 'your user id'
+set :proxy_pass, 'your password'
+
+set :servers, {
+  ct: 'ip of ct server',
+  st: 'ip of st gateway server'
+}
+
+set :accounts, {
+  st_server_account: {
+    user: 'user name',
+    password: 'password'
+  },
+  ct_root_account: {
+    user: 'root',
+    password: 'password'
+  },
+  ct_server_account: {                # ct環境は、deployはrootで実行するので、このアカウント結局使わない
+    user: 'user name',
+    password: 'account',
+  }
+}
+
+set :s3_accounts, {
+  lws_ct_contents: {
+    bucket: "bucket name for ct",
+    config: {
+      access_key_id: "access_key for ct",
+      secret_access_key: "secret for ct",
+      s3_endpoint: "s3-ap-northeast-1.amazonaws.com",
+      proxy_uri: "http://#{fetch :proxy_user}:#{fetch :proxy_pass}@#{fetch :proxy_host}:#{fetch :proxy_port}"
+    }
+  },
+  test_cnt_org: {
+    bucket: "bucket name for st",
+    config: {
+      access_key_id: "access_key for st",
+      secret_access_key: "secret for st",
+      s3_endpoint: "s3-ap-northeast-1.amazonaws.com",
+      proxy_uri: "http://#{fetch :proxy_user}:#{fetch :proxy_pass}@#{fetch :proxy_host}:#{fetch :proxy_port}"
+    }
+  }
+}

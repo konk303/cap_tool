@@ -1,0 +1,77 @@
+# -*- coding: utf-8 -*-
+
+namespace :git do
+
+  repos = [:front, :back, :batch, :lws_framework]
+  local_repo_dir = "/tmp/cap_tools/repos"
+
+  desc "create tarball of all repos"
+  task :create_tarballs do
+    repos.each do |repo|
+      invoke "git:#{repo}:create_tarball"
+    end
+    puts "finished"
+  end
+
+  repos.each do |repo|
+    namespace repo do
+      repo_dir = File.join(local_repo_dir, repo.to_s)
+
+      directory repo_dir
+      file repo_dir do |d|
+        run_locally do
+          execute :git, :clone, "http://10.230.207.76/#{repo}", d
+        end
+      end
+
+      desc "Update the repo mirror for #{repo}"
+      task :update_local => repo_dir do
+        run_locally do
+          within repo_dir do
+            # execute :git, :tag, "-l", "|xargs", :git, :tag, "-d"
+            execute :git, :fetch, '--prune'
+          end
+        end
+      end
+
+      desc "cleanup local tarballs of #{repo}/branch"
+      task :cleanup_local => repo_dir do
+        run_locally do
+          within local_repo_dir do
+            execute :rm, "-f", "#{repo}_#{fetch(:branch)}_*.tar.gz"
+          end
+        end
+      end
+
+      desc "tag #{repo} and push to remote"
+      task :tag => [:update_local, :cleanup_local] do
+        if fetch(:tag_prefix)
+          set :"#{repo}_tag", "#{fetch :tag_prefix}#{release_timestamp}"
+          run_locally do
+            within repo_dir do
+              execute :git, :tag, fetch(:"#{repo}_tag"), "origin/#{fetch :branch}"
+              execute :git, :push, '--tags'
+            end
+          end
+        else
+          set :"#{repo}_tag", "origin/#{fetch :branch}"
+        end
+      end
+
+      desc "create tarball of the branch for #{repo}"
+      task :create_tarball => :tag do
+        created_tarball = File.join(local_repo_dir, "#{repo}_#{fetch(:branch)}_#{release_timestamp}.tar")
+        run_locally do
+          within repo_dir do
+            execute :git, :archive, fetch(:"#{repo}_tag"), "> #{created_tarball}"
+            execute :echo, fetch(:"#{repo}_tag"), "> git_tag"
+            execute :git, "rev-parse", fetch(:"#{repo}_tag"), "> git_revision"
+            execute :tar, "-rf", created_tarball, :git_tag, :git_revision
+            execute :gzip, created_tarball
+          end
+        end
+        set :"#{repo}_local_tarball_latest", "#{created_tarball}.gz"
+      end
+    end
+  end
+end

@@ -1,0 +1,29 @@
+# -*- coding: utf-8 -*-
+
+namespace :infos do
+  desc "uname and quit"
+  task uname: :find_servers do
+    on roles(:all), in: :sequence do
+      capture "uname -a"
+    end
+  end
+
+  desc "uptime and quit"
+  task uptime: :find_servers do
+    on roles(:all), in: :sequence do
+      capture "uptime"
+    end
+  end
+
+  [:front, :back].each do |target|
+    namespace target do
+      desc "tail log/* of #{target}"
+      task tail: :find_servers do
+        on roles(target) do
+        # on roles(target).select{|s| s.hostname =~/-\d$/} do
+          capture :tail, "-f", deploy_path.join(target.to_s, "log", "*")
+        end
+      end
+    end
+  end
+end

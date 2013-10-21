@@ -1,0 +1,103 @@
+# -*- coding: utf-8 -*-
+
+namespace :assets do
+
+  desc "deploy front/back assets from app server to s3"
+  task :deploy => [:cleanup_local, "front:upload_to_s3", "back:upload_to_s3"] do
+    puts "finished!"
+  end
+
+  desc "initialize - set varables"
+  task :prepare => :find_servers do
+    set :front_assets_dir_prefix, fetch(:assets_prefix) ? File.join("public", fetch(:assets_prefix)) : "public"
+    set :back_assets_dir_prefix, File.join("public", "assets")
+    set :s3_front_dest, fetch(:assets_prefix) ? File.join(fetch(:assets_prefix), "css_js") : "css_js"
+    set :s3_back_dest, fetch(:assets_prefix) ? File.join(fetch(:assets_prefix), "YNbVqPoeuUW", "assets") : File.join("YNbVqPoeuUW", "assets")
+    set :local_assets_dir, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_assets")
+    set :local_front_dir, File.join(fetch(:local_assets_dir), "front")
+    set :local_back_dir, File.join(fetch(:local_assets_dir), "back")
+    set :front_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_front_assets.tar.gz")
+    set :back_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_back_assets.tar.gz")
+  end
+
+  desc "rm local tmp files"
+  task :cleanup_local => :prepare do
+    run_locally do
+      execute :rm, "-rf", fetch(:local_assets_dir)
+      execute :rm, "-rf", fetch(:front_tarball)
+      execute :rm, "-rf", fetch(:back_tarball)
+    end
+  end
+
+  [:front, :back].each do |repo|
+    namespace repo do
+      desc "find latest release for #{repo}"
+      task :find_latest_release => :prepare do
+        releases_path = deploy_path.join("releases", repo.to_s)
+        on primary(repo) do
+          releases = capture(:ls, "-xt", releases_path).split
+          set :"latest_#{repo}_path", releases_path.join(releases.first)
+        end
+      end
+
+      desc "create tarball of assets for #{repo}"
+      task :create_tarball => :find_latest_release do
+        on primary(repo) do
+          execute :mkdir, "-pv", fetch(:tmp_dir)
+          within fetch(:"latest_#{repo}_path").join(fetch(:"#{repo}_assets_dir_prefix")) do
+            execute :tar, "-czf", fetch(:"#{repo}_tarball"), "."
+          end
+        end
+      end
+
+      desc "download tarball of assets into tmp"
+      task :download_tarball => :create_tarball do
+        run_locally do
+          execute :mkdir, "-pv", fetch(:tmp_dir)
+        end
+        on primary(repo) do
+          download!(fetch(:"#{repo}_tarball"), fetch(:"#{repo}_tarball"))
+        end
+      end
+
+      desc "extract tarball"
+      task :extract_tarball => [:download_tarball] do
+        run_locally do
+          execute :mkdir, "-pv", fetch(:"local_#{repo}_dir")
+          within fetch(:"local_#{repo}_dir") do
+            execute :tar, "-xzf", fetch(:"#{repo}_tarball")
+          end
+        end
+      end
+
+      desc "upload to S3"
+      task :upload_to_s3 => :extract_tarball do
+        run_locally do
+          AWS.config(fetch(:s3_config)[:config])
+          s3 = AWS::S3.new
+          bucket = s3.buckets[fetch(:s3_config)[:bucket]]
+          dest = fetch(:"s3_#{repo}_dest")
+          content_types = {
+            css: "text/css",
+            js: "text/javascript",
+            gz: "application/x-gzip",
+            gif: "image/gif",
+            png: "image/png",
+            jpg: "image/jpeg",
+          }
+          local_dir = fetch(:"local_#{repo}_dir")
+          Dir.glob("#{local_dir}/**/*").select{|f| File.file? f}.each do |f|
+            file_name = f.sub(%r{^#{local_dir}/}, "")
+            content_type = content_types[File.extname(f).downcase.tr('.','').to_sym]
+            info "uploading #{File.join(dest, file_name)}"
+            bucket.objects.create(
+              File.join(dest, file_name),
+              Pathname.new(f),
+              content_type: content_type
+              )
+          end
+        end
+      end
+    end
+  end
+end
