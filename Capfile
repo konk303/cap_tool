@@ -1,4 +1,3 @@
-require 'bundler/setup'
 Bundler.require(:default)
 
 require 'capistrano/console'
@@ -7,6 +6,7 @@ require 'net/ssh/proxy/http'
 # patches
 require_relative 'lib/netssh_patch'
 require_relative 'lib/timestamp_patch'
+require_relative 'lib/dsl_paths_patch'
 
 # Load DSL and Setup Up Stages
 require 'capistrano/setup'

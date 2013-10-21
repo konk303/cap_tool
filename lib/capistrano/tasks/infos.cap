@@ -19,9 +19,10 @@ namespace :infos do
     namespace target do
       desc "tail log/* of #{target}"
       task tail: :find_servers do
+        set :repo, target
         on roles(target) do
         # on roles(target).select{|s| s.hostname =~/-\d$/} do
-          capture :tail, "-f", deploy_path.join(target.to_s, "log", "*")
+          capture :tail, "-f", deploy_path.join("log", "*")
         end
       end
     end
