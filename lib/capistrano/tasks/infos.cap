@@ -34,7 +34,7 @@ namespace :infos do
       task tail: :find_servers do
         set :repo, target
         on roles(target) do
-          capture :tail, "-f", deploy_path.join("log", "*")
+          capture :tail, "-f", current_path.join("log", "*")
         end
       end
     end

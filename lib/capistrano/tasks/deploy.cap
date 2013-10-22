@@ -24,6 +24,7 @@ namespace :deploy do
           invoke "deploy:#{target}:#{r}:new_release_path"
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
+          invoke "deploy:#{target}:#{r}:bundler:install"
         end
       end
 
@@ -176,6 +177,16 @@ namespace :deploy do
                     end
                     execute :ln, '-s', source, target_dir
                   end
+                end
+              end
+            end
+          end
+
+          namespace :bundler do
+            task :install do
+              on roles task do
+                within release_path do
+                  execute :bundle, :install, "--without test", "--path vendor/bundler"
                 end
               end
             end
