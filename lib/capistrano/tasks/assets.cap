@@ -33,7 +33,7 @@ namespace :assets do
     namespace repo do
       desc "find latest release for #{repo}"
       task :find_latest_release => :prepare do
-        releases_path = deploy_path.join("releases", repo.to_s)
+        set :repo, repo
         on primary(repo) do
           releases = capture(:ls, "-xt", releases_path).split
           set :"latest_#{repo}_path", releases_path.join(releases.first)
