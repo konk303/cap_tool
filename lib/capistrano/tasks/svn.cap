@@ -4,13 +4,11 @@ namespace :svn do
 
   envs = ["CT", "ST", "OT"]
   dir_prefix = "override_settings_for_"
-  local_repo_dir = "/tmp/cap_tools/repos/svn"
+  local_repo_dir = "/tmp/cap_tool/repos/svn"
 
   desc "update svn repositories"
-  task :update_locals do
-    envs.each do |env|
-      invoke "svn:#{env}:update_local"
-    end
+  task :update_locals => envs.map{|e| :"#{e}:update_local"} do
+    puts "finished"
   end
 
   envs.each do |env|
