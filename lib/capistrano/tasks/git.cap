@@ -3,13 +3,10 @@
 namespace :git do
 
   repos = [:front, :back, :batch, :lws_framework]
-  local_repo_dir = "/tmp/cap_tools/repos"
+  local_repo_dir = "/tmp/cap_tool/repos"
 
   desc "create tarball of all repos"
-  task :create_tarballs do
-    repos.each do |repo|
-      invoke "git:#{repo}:create_tarball"
-    end
+  task :create_tarballs => repos.map{|r| :"#{r}:create_tarball"} do
     puts "finished"
   end
 
@@ -67,6 +64,7 @@ namespace :git do
             execute :echo, fetch(:"#{repo}_tag"), "> git_tag"
             execute :git, "rev-parse", fetch(:"#{repo}_tag"), "> git_revision"
             execute :tar, "-rf", created_tarball, :git_tag, :git_revision
+            # move more files from svn?
             execute :gzip, created_tarball
           end
         end

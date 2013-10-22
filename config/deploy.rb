@@ -2,7 +2,7 @@
 
 load 'config/setting.rb'
 
-set :tmp_dir, "/tmp/cap_tools"
+set :tmp_dir, "/tmp/cap_tool"
 
 ssh_proxy = Net::SSH::Proxy::HTTP.new(fetch(:proxy_host), fetch(:proxy_port),
   :user => fetch(:proxy_user), :password => fetch(:proxy_pass))
