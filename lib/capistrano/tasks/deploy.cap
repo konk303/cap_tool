@@ -19,30 +19,45 @@ namespace :deploy do
         repos.map{|r| invoke "deploy:#{target}:#{r}:check"}
       end
 
+      task :updating => :starting do
+        repos.map do |r|
+          invoke "deploy:#{target}:#{r}:new_release_path"
+          invoke "deploy:#{target}:#{r}:create_release"
+          invoke "deploy:#{target}:#{r}:symlink:shared"
+        end
+      end
+
       repos.each do |repo|
         namespace repo do
-          # desc "upload local tarball of #{repo} to #{target}"
-          # task :upload => [:check, "repos:#{repo}:find_target_tarball"] do
-          #   on roles(target) do
-          #     execute :mkdir, "-pv", fetch(:tmp_dir)
-          #     upload! fetch(:"#{repo}_local_tarball_latest"), fetch(:tmp_dir)
-          #   end
-          # end
+          desc "upload tarball of #{repo} to releases"
+          task :create_release => "create_release:extract" do
+            puts "created new dir"
+          end
 
-          # desc "extract uploaded tarball of #{repo} to #{target}"
-          # task :extract => :upload do
-          #   on roles(target) do
-          #     set :"release_path_#{repo}", fetch(:releases_path).join(release_timestamp)
-          #     within fetch(:tmp_dir) do
-          #       execute :mkdir, "-pv", fetch(:"release_path_#{repo}")
-          #       execute :tar, "-xzf", File.basename(fetch :"#{repo}_local_tarball_latest"), "-C", fetch(:"release_path_#{repo}")
-          #     end
-          #   end
-          # end
+          namespace :create_release do
+            desc "upload local tarball of #{repo} to #{target}"
+            task :upload => [:check, "git:#{repo}:find_tarball"] do
+              on roles(target) do
+                execute :mkdir, "-pv", fetch(:tmp_dir)
+                upload! fetch(:"#{repo}_tarball"), fetch(:tmp_dir)
+              end
+            end
+
+            desc "extract uploaded tarball of #{repo} to #{target}"
+            task :extract => [:upload, :new_release_path] do
+              on roles(target) do
+                within fetch(:tmp_dir) do
+                  execute :mkdir, "-pv", release_path
+                  execute :tar, "-xzf", File.basename(fetch :"#{repo}_tarball"), "-C", release_path
+                end
+              end
+            end
+          end
 
           desc 'Check required files and directories exist'
           task :check => [:find_servers] do
             set :repo, repo
+            invoke "git:#{repo}:find_tarball"
             invoke "deploy:#{target}:#{repo}:check:directories"
             invoke "deploy:#{target}:#{repo}:check:linked_dirs"
             invoke "deploy:#{target}:#{repo}:check:make_linked_dirs"
@@ -86,6 +101,10 @@ namespace :deploy do
               end
             end
           end
+
+          task :new_release_path do
+            set_release_path
+          end
         end
       end
 
@@ -94,21 +113,6 @@ namespace :deploy do
 
       # desc "fetch and upload required repos to #{target}"
       # task :execute => repos.map{|r| ["git:#{r}:create_tarball", "#{r}:extract"]}.flatten
-    end
-  end
-
-  namespace :repos do
-    tarball_dir = "/tmp/cap_tools/repos"
-    [:front, :back, :batch, :lws_framework].each do |repo|
-      namespace repo do
-        desc "decide which tar should be uploaded for #{repo}"
-        task :find_target_tarball do
-          unless fetch(:"#{repo}_local_tarball_latest")
-            latest = `ls -xt #{tarball_dir}/#{repo}_#{fetch(:branch)}_*.tar.gz`.split.first
-            set :"#{repo}_local_tarball_latest", latest
-          end
-        end
-      end
     end
   end
 end
