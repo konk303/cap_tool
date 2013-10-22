@@ -1,17 +1,30 @@
 # -*- coding: utf-8 -*-
 
 namespace :infos do
-  desc "uname and quit"
-  task uname: :find_servers do
-    on roles(:all), in: :sequence do
-      capture "uname -a"
-    end
-  end
 
-  desc "uptime and quit"
-  task uptime: :find_servers do
-    on roles(:all), in: :sequence do
-      capture "uptime"
+  targets = [:front, :back, :frontmobile, :batch]
+
+  desc "uname all servers"
+  task :uname => targets.map{|t| :"#{t}:uname"}
+
+  desc "uptime all servers"
+  task :uptime => targets.map{|t| :"#{t}:uptime"}
+
+  targets.each do |target|
+    namespace target do
+      desc "uname #{target } servers and quit"
+      task uname: :find_servers do
+        on roles(target), in: :sequence do
+          capture "uname -a"
+        end
+      end
+
+      desc "uptime #{target } servers and quit"
+      task uptime: :find_servers do
+        on roles(target), in: :sequence do
+          capture "uptime"
+        end
+      end
     end
   end
 
@@ -21,7 +34,6 @@ namespace :infos do
       task tail: :find_servers do
         set :repo, target
         on roles(target) do
-        # on roles(target).select{|s| s.hostname =~/-\d$/} do
           capture :tail, "-f", deploy_path.join("log", "*")
         end
       end

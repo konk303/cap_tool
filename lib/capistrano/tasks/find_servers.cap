@@ -17,11 +17,11 @@ task :find_servers do
       # 手動定義があったらそっち尊重
       next if roles(role).any?
 
-      targets = servers.grep(regexp)
+      targets = servers.grep(regexp) #.select{|s| s =~/-\d$/}
       targets.each do |s|
         server(s,
-          user: 'lwsuser001',
-          password: 'lwsuser001',
+          user: host.username,
+          password: host.password,
           roles: role,
           ssh_options: {},  # don't use proxy
           gateway: Net::SSH::Gateway.new(
