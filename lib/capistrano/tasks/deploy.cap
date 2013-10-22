@@ -8,10 +8,10 @@ namespace :deploy do
   # end
 
   targets = {
-    :front => [:front, :lws_framework],
-    :frontmobile => [:front, :lws_framework],
-    :back => [:back, :lws_framework],
-    :batch => [:batch, :lws_framework]
+    :front => [:lws_framework, :front],
+    :frontmobile => [:lws_framework, :front],
+    :back => [:lws_framework, :back],
+    :batch => [:lws_framework, :batch]
   }
   targets.each do |target, repos|
     namespace target do
@@ -19,7 +19,7 @@ namespace :deploy do
         repos.map{|r| invoke "deploy:#{target}:#{r}:check"}
       end
 
-      task :updating => :starting do
+      task :updating do
         repos.map do |r|
           invoke "deploy:#{target}:#{r}:new_release_path"
           invoke "deploy:#{target}:#{r}:create_release"
@@ -31,7 +31,7 @@ namespace :deploy do
         namespace repo do
           desc "upload tarball of #{repo} to releases"
           task :create_release => "create_release:extract" do
-            puts "created new dir"
+            puts "created new dir #{release_path}"
           end
 
           namespace :create_release do
@@ -61,7 +61,7 @@ namespace :deploy do
             invoke "deploy:#{target}:#{repo}:check:directories"
             invoke "deploy:#{target}:#{repo}:check:linked_dirs"
             invoke "deploy:#{target}:#{repo}:check:make_linked_dirs"
-            'check:linked_files'
+            invoke "deploy:#{target}:#{repo}:check:linked_files"
           end
 
           namespace :check do
@@ -96,6 +96,85 @@ namespace :deploy do
                   unless test "[ -f #{file} ]"
                     error t(:linked_file_does_not_exist, file: file, host: host)
                     exit 1
+                  end
+                end
+              end
+            end
+          end
+
+          namespace :symlink do
+            desc 'Symlink release to current'
+            task :release => [:check, :new_release_path] do
+              on roles target do
+                execute :rm, '-rf', current_path
+                execute :ln, '-s', release_path, current_path
+              end
+            end
+
+            desc 'Symlink files and directories from shared to release'
+            task :shared do
+              invoke "deploy:#{target}:#{repo}:symlink:linked_files"
+              invoke "deploy:#{target}:#{repo}:symlink:linked_dirs"
+              if repo != :lws_framework
+                invoke "deploy:#{target}:#{repo}:symlink:lws_framework"
+              end
+            end
+
+            desc "Symlink lws_framework"
+            task :lws_framework => "lws_framework:create_release" do
+              # env.repoが変わっていた場合用に再実行
+              set :repo, repo
+
+              on roles target do
+                target_dir = release_path.join("vendor", "gems", "lws_framework")
+                source = fetch(:lws_framework_release_path)
+                execute :mkdir, '-pv', target_dir
+                unless test "[ -L #{target_dir} ]"
+                  if test "[ -d #{target_dir} ]"
+                    execute :rm, '-rf', target_dir
+                  end
+                  execute :ln, '-s', source, target_dir
+                end
+              end
+            end
+
+            desc 'Symlink linked directories'
+            task :linked_dirs => [:check, :new_release_path] do
+              next unless any? :linked_dirs
+              on roles target do
+                # `shared/bundler`は`release_path/vendor/bundler`にsymlinkする
+                set :linked_dirs, fetch(:linked_dirs).map{|d| d == "bundler" ? "vendor/#{d}" : d}
+                execute :mkdir, '-pv', linked_dir_parents(release_path)
+
+                fetch(:linked_dirs).each do |dir|
+                  # lws_frameworkには、bundlerはいらない
+                  next if repo == :lws_framework && dir == "vendor/bundler"
+                  target_dir = release_path.join(dir)
+                  source = shared_path.join(dir.sub(%r{^vendor/}, ""))
+                  unless test "[ -L #{target_dir} ]"
+                    if test "[ -d #{target_dir} ]"
+                      execute :rm, '-rf', target_dir
+                    end
+                    execute :ln, '-s', source, target_dir
+                  end
+                end
+              end
+            end
+
+            desc 'Symlink linked files'
+            task :linked_files => [:check, :new_release_path] do
+              next unless any? :linked_files
+              on roles target do
+                execute :mkdir, '-pv', linked_file_dirs(release_path)
+
+                fetch(:linked_files).each do |file|
+                  target_dir = release_path.join(file)
+                  source = shared_path.join(file)
+                  unless test "[ -L #{target_dir} ]"
+                    if test "[ -f #{target_dir} ]"
+                      execute :rm, target_dir
+                    end
+                    execute :ln, '-s', source, target_dir
                   end
                 end
               end
