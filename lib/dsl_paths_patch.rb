@@ -12,6 +12,10 @@ module Capistrano
       repo = fetch(:repo)
       repo ? Pathname.new(deploy_to).join('releases', repo.to_s) : super
     end
+
+    def shared_path
+      repo = fetch(:repo)
+      repo ? Pathname.new(deploy_to).join('shared', repo.to_s) : super
+    end
   end
 end
-

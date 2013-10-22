@@ -2,10 +2,10 @@
 
 namespace :deploy do
 
-  namespace :upload do
-    task :all
-    task :easy
-  end
+  # namespace :upload do
+  #   task :all
+  #   task :easy
+  # end
 
   targets = {
     :front => [:front, :lws_framework],
@@ -15,51 +15,52 @@ namespace :deploy do
   }
   targets.each do |target, repos|
     namespace target do
+      task :starting do
+        repos.map{|r| invoke "deploy:#{target}:#{r}:check"}
+      end
+
       repos.each do |repo|
         namespace repo do
-          desc "upload local tarball of #{repo} to #{target}"
-          task :upload => [:check, "repos:#{repo}:find_target_tarball"] do
-            on roles(target) do
-              execute :mkdir, "-pv", fetch(:tmp_dir)
-              upload! fetch(:"#{repo}_local_tarball_latest"), fetch(:tmp_dir)
-            end
-          end
+          # desc "upload local tarball of #{repo} to #{target}"
+          # task :upload => [:check, "repos:#{repo}:find_target_tarball"] do
+          #   on roles(target) do
+          #     execute :mkdir, "-pv", fetch(:tmp_dir)
+          #     upload! fetch(:"#{repo}_local_tarball_latest"), fetch(:tmp_dir)
+          #   end
+          # end
 
-          desc "extract uploaded tarball of #{repo} to #{target}"
-          task :extract => :upload do
-            on roles(target) do
-              set :"release_path_#{repo}", fetch(:releases_path).join(release_timestamp)
-              within fetch(:tmp_dir) do
-                execute :mkdir, "-pv", fetch(:"release_path_#{repo}")
-                execute :tar, "-xzf", File.basename(fetch :"#{repo}_local_tarball_latest"), "-C", fetch(:"release_path_#{repo}")
-              end
-            end
-          end
+          # desc "extract uploaded tarball of #{repo} to #{target}"
+          # task :extract => :upload do
+          #   on roles(target) do
+          #     set :"release_path_#{repo}", fetch(:releases_path).join(release_timestamp)
+          #     within fetch(:tmp_dir) do
+          #       execute :mkdir, "-pv", fetch(:"release_path_#{repo}")
+          #       execute :tar, "-xzf", File.basename(fetch :"#{repo}_local_tarball_latest"), "-C", fetch(:"release_path_#{repo}")
+          #     end
+          #   end
+          # end
 
           desc 'Check required files and directories exist'
-          task :check => [
-            :find_servers,
-            'check:directories',
-            'check:linked_dirs',
-            'check:make_linked_dirs',
+          task :check => [:find_servers] do
+            set :repo, repo
+            invoke "deploy:#{target}:#{repo}:check:directories"
+            invoke "deploy:#{target}:#{repo}:check:linked_dirs"
+            invoke "deploy:#{target}:#{repo}:check:make_linked_dirs"
             'check:linked_files'
-          ]
+          end
 
           namespace :check do
             desc 'Check shared and release directories exist'
             task :directories do
-              set :shared_path, shared_path.join(repo.to_s)
-              set :releases_path, releases_path.join(repo.to_s)
               on roles target do
-                execute :mkdir, '-pv', fetch(:shared_path), fetch(:releases_path)
+                execute :mkdir, '-pv', shared_path, releases_path
               end
             end
 
             desc 'Check directories to be linked exist in shared'
             task :linked_dirs do
               next unless any? :linked_dirs
-              on roles repo do
-                binding.pry
+              on roles target do
                 execute :mkdir, '-pv', linked_dirs(shared_path)
               end
             end
@@ -67,7 +68,7 @@ namespace :deploy do
             desc 'Check directories of files to be linked exist in shared'
             task :make_linked_dirs do
               next unless any? :linked_files
-              on roles :app do |host|
+              on roles target do |host|
                 execute :mkdir, '-pv', linked_file_dirs(shared_path)
               end
             end
@@ -75,7 +76,7 @@ namespace :deploy do
             desc 'Check files to be linked exist in shared'
             task :linked_files do
               next unless any? :linked_files
-              on roles :app do |host|
+              on roles target do |host|
                 linked_files(shared_path).each do |file|
                   unless test "[ -f #{file} ]"
                     error t(:linked_file_does_not_exist, file: file, host: host)
@@ -88,11 +89,11 @@ namespace :deploy do
         end
       end
 
-      desc "upload required repos to #{target}"
-      task :execute_easy => repos.map{|r| "#{r}:extract"}
+      # desc "upload required repos to #{target}"
+      # task :execute_easy => repos.map{|r| "#{r}:extract"}
 
-      desc "fetch and upload required repos to #{target}"
-      task :execute => repos.map{|r| ["git:#{r}:create_tarball", "#{r}:extract"]}.flatten
+      # desc "fetch and upload required repos to #{target}"
+      # task :execute => repos.map{|r| ["git:#{r}:create_tarball", "#{r}:extract"]}.flatten
     end
   end
 
