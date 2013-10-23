@@ -17,6 +17,7 @@ namespace :deploy do
     namespace target do
       task :starting do
         repos.map{|r| invoke "deploy:#{target}:#{r}:check"}
+        invoke "deploy:#{target}:misc:create_img_tmp_dir"
       end
 
       task :updating do
@@ -24,7 +25,10 @@ namespace :deploy do
           invoke "deploy:#{target}:#{r}:new_release_path"
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
-          invoke "deploy:#{target}:#{r}:bundler:install"
+          unless r == :lws_framework
+            invoke "deploy:#{target}:misc:#{r}:modify_gemfile"
+            invoke "deploy:#{target}:#{r}:bundler:install"
+          end
         end
       end
 

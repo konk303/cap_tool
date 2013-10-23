@@ -1,0 +1,57 @@
+# -*- coding: utf-8 -*-
+
+namespace :deploy do
+
+  targets = {
+    :front => [:lws_framework, :front],
+    :frontmobile => [:lws_framework, :front],
+    :back => [:lws_framework, :back],
+    :batch => [:lws_framework, :batch]
+  }
+
+  targets.each do |target, repos|
+    namespace target do
+      namespace :misc do
+        desc "create extra tmp dirs for SBITIMR001, `app-XX/var/SBITIMR001/` and `/var/tmp/lws/XX/SBITIMR001`"
+        task :create_img_tmp_dir => [:find_servers] do
+          on roles target do
+            dir_prefix = deploy_path.sub(/.*-(\d+)$/){$1}
+            ["SBITIMR001"].each do |dir_name|
+              dirs = [
+                deploy_path.join("var", dir_name),
+                File.join("/", "var", "tmp", "lws", dir_prefix, dir_name)]
+              dirs.each do |dir|
+                execute :mkdir, "-pv", dir
+                execute :chown, "-v", host.username, dir
+                execute :chmod, "0777", dir
+              end
+            end
+          end
+        end
+
+        repos.each do |repo|
+          next if repo == :lws_framework
+          namespace repo do
+            desc "override Gemfile to use symlinked lws_framework"
+            task :modify_gemfile => [:find_servers] do
+              set :repo, repo
+              on roles target do
+                binding.pry
+                gemfile = capture :cat, release_path.join("Gemfile")
+                if [:front, :back].include? repo
+                  gemfile.sub!(/^gem 'lws_framework'.*$/,
+                    "gem 'lws_framework', :path => 'vendor/gems/lws_framework'")
+                elsif repo == :batch
+                  gemfile.sub!(/^ENV.*?end/m,
+                    "gem 'lws_messages', :path => 'vendor/gems/lws_framework/lws_messages'
+gem 'lws_extern', :path => 'vendor/gems/lws_framework/lws_extern'")
+                end
+                execute :cat, ">", release_path.join("Gemfile"), ["<<'EOF'", gemfile, "EOF"].join("\n")
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+end
