@@ -64,7 +64,6 @@ namespace :git do
             execute :echo, fetch(:"#{repo}_tag"), "> git_tag"
             execute :git, "rev-parse", fetch(:"#{repo}_tag"), "> git_revision"
             execute :tar, "-rf", created_tarball, :git_tag, :git_revision
-            # move more files from svn?
             execute :gzip, created_tarball
           end
         end

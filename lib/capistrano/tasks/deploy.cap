@@ -27,7 +27,12 @@ namespace :deploy do
           invoke "deploy:#{target}:#{r}:symlink:shared"
           unless r == :lws_framework
             invoke "deploy:#{target}:misc:#{r}:modify_gemfile"
-            invoke "deploy:#{target}:#{r}:bundler:install"
+            invoke "deploy:#{target}:#{r}:bundler_install"
+            invoke "deploy:#{target}:misc:#{r}:replace_files_from_svn"
+            unless r == :batch
+              invoke "deploy:#{target}:#{r}:assets_precompile"
+              invoke "assets:#{r}:upload_to_s3"
+            end
           end
         end
       end
@@ -186,12 +191,19 @@ namespace :deploy do
             end
           end
 
-          namespace :bundler do
-            task :install do
-              on roles task do
-                within release_path do
-                  execute :bundle, :install, "--without test", "--path vendor/bundler"
-                end
+          task :bundler_install do
+            on roles task do
+              within release_path do
+                execute :bundle, :install, "--without test", "--path vendor/bundler"
+              end
+            end
+          end
+
+          task :assets_precompile do
+            on roles task do
+              within release_path do
+                execute :bundle, :exec, :rake, "assets:clean"
+                execute :bundle, :exec, :rake, "assets:precompile"
               end
             end
           end

@@ -3,27 +3,25 @@
 namespace :svn do
 
   envs = ["CT", "ST", "OT"]
-  dir_prefix = "override_settings_for_"
   local_repo_dir = "/tmp/cap_tool/repos/svn"
 
   desc "update svn repositories"
-  task :update_locals => envs.map{|e| :"#{e}:update_local"} do
-    puts "finished"
+  task :update_locals => envs.map{|e| :"#{e.downcase}:update_local"} do
+    puts "svn updated"
   end
 
   envs.each do |env|
-    namespace env do
-      repo = "#{dir_prefix}#{env}"
-      repo_dir = File.join(local_repo_dir, repo)
+    namespace env.downcase do
+      repo_dir = File.join(local_repo_dir, env.downcase)
 
       directory repo_dir
       file repo_dir do |d|
         run_locally do
-          execute :svn, :checkout, "http://svn.appmills.hitachi-solutions.co.jp/LumineWebProject/NEW_src/trunk/#{repo}", d
+          execute :svn, :checkout, "http://svn.appmills.hitachi-solutions.co.jp/LumineWebProject/NEW_src/trunk/override_settings_for_#{env}", d
         end
       end
 
-      desc "Update the repo for #{repo}"
+      desc "Update the repo for #{env}"
       task :update_local => repo_dir do
         run_locally do
           within repo_dir do

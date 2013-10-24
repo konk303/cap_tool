@@ -13,7 +13,7 @@ namespace :deploy do
     namespace target do
       namespace :misc do
         desc "create extra tmp dirs for SBITIMR001, `app-XX/var/SBITIMR001/` and `/var/tmp/lws/XX/SBITIMR001`"
-        task :create_img_tmp_dir => [:find_servers] do
+        task :create_img_tmp_dir => :find_servers do
           on roles target do
             dir_prefix = deploy_path.sub(/.*-(\d+)$/){$1}
             ["SBITIMR001"].each do |dir_name|
@@ -33,10 +33,8 @@ namespace :deploy do
           next if repo == :lws_framework
           namespace repo do
             desc "override Gemfile to use symlinked lws_framework"
-            task :modify_gemfile => [:find_servers] do
-              set :repo, repo
+            task :modify_gemfile => :find_servers do
               on roles target do
-                binding.pry
                 gemfile = capture :cat, release_path.join("Gemfile")
                 if [:front, :back].include? repo
                   gemfile.sub!(/^gem 'lws_framework'.*$/,
@@ -47,6 +45,38 @@ namespace :deploy do
 gem 'lws_extern', :path => 'vendor/gems/lws_framework/lws_extern'")
                 end
                 execute :cat, ">", release_path.join("Gemfile"), ["<<'EOF'", gemfile, "EOF"].join("\n")
+              end
+            end
+
+            desc "replace files in svn repo"
+            task :replace_files_from_svn => [:find_servers] do
+              set :repo, repo
+              set :back_release_path, releases_path.join("201309090844")
+
+              env = fetch(:stage)[0, 2]
+              stage = fetch(:stage)[2,2]
+              config_path = (repo == :batch ? release_path.join("engine") : release_path).join("config")
+
+              invoke "svn:#{env}:update_local"
+              on roles target do
+                Dir.glob(File.join(fetch(:tmp_dir), "repos", "svn", env, repo.to_s, stage, "*")).each do |file|
+                  file_name = File.basename(file)
+                  remote_files = case file_name
+                                 when "deploy_configs.yml", "database.yml", "biwd_database.yml", "mail.yml"
+                                   [config_path.join(file_name)]
+                                 when "production.rb"
+                                   [config_path.join("environments", file_name)]
+                                 when "connection_proxy.rb", "session_store.rb"
+                                   [config_path.join("initializers", file_name)]
+                                 when "lws.key"
+                                   [config_path.join("keys", file_name)]
+                                 when "jpgwlib.properties.template"
+                                   [fetch(:lws_framework_release_path).join("lws_extern", "lib", "ext", "files", "veritrans_dev", file_name)]
+                                 when /lws_cat\d+.tsv/
+                                   [config_path.join("wise", "01", file_name), config_path.join("wise", "02", file_name)]
+                                 end
+                  remote_files.each{|remote_file| upload! file, remote_file}
+                end
               end
             end
           end
