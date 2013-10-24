@@ -17,7 +17,7 @@ task :find_servers do
       # 手動定義があったらそっち尊重
       next if roles(role).any?
 
-      targets = servers.grep(regexp)# .select{|s| s =~/-\d$/}
+      targets = servers.grep(regexp).select{|s| s =~/-\d$/}
       targets.each do |s|
         server(s,
           user: host.username,

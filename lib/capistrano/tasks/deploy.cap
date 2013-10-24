@@ -9,12 +9,53 @@ namespace :deploy do
     :batch => [:lws_framework, :batch]
   }
 
+  namespace :all do
+    desc "deploy latest codes, stop before restart"
+    task :deploy => targets.map{|k, v| "#{k}:deploy"} do
+      puts "deploy all done!"
+    end
+
+    desc "deploy already created tarball, stop before restart"
+    task :deploy_easy => targets.map{|k, v| "#{k}:deploy_easy"} do
+      puts "easy deploy all done!"
+    end
+
+    desc "deploy latest codes, and restart the servers"
+    task :restart => targets.map{|k, v| "#{k}:restart"} do
+      puts "restart all done!"
+    end
+
+    desc "deploy already created tarball, and restart the servers"
+    task :restart_easy => targets.map{|k, v| "#{k}:restart_easy"} do
+      puts "deploy all done!"
+    end
+
+    task :default => :restart
+  end
+
   targets.each do |target, repos|
     namespace target do
-      desc "deploy latest codes to #{target}, and restart the server"
-      task :normal => [:starting, :updating, :publishing] do
-        puts "done!"
+      desc "deploy latest codes to #{target}, stop before restart."
+      task :deploy => [:starting, :updating] do
+        puts "deploy done!"
       end
+
+      desc "deploy already created tarball to #{target}, stop before restart."
+      task :deploy_easy => [:set_easy, :starting, :updating] do
+        puts "deploy easy done!"
+      end
+
+      desc "deploy latest codes to #{target}, and restart the server"
+      task :restart => [:deploy, :publishing, :finishing, :finished] do
+        puts "restart done!"
+      end
+
+      desc "deploy already created tarball to #{target}, and restart the server"
+      task :restart_easy => [:deploy_easy, :publishing, :finishing, :finished] do
+        puts "restart easy done!"
+      end
+
+      task :default => :restart
 
       task :starting do
         repos.map do |r|
@@ -24,11 +65,19 @@ namespace :deploy do
         invoke "deploy:#{target}:misc:create_img_tmp_dir"
       end
 
+      task :set_easy do
+        set :easy_mode, true
+      end
+
       task :updating do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
-          invoke "git:#{r}:find_tarball"
+          if fetch(:easy_mode)
+            invoke "git:#{r}:find_tarball"
+          else
+            invoke "git:#{r}:create_tarball"
+          end
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
           unless r == :lws_framework
@@ -37,13 +86,14 @@ namespace :deploy do
             invoke "deploy:#{target}:misc:#{r}:replace_files_from_svn"
             unless r == :batch
               invoke "deploy:#{target}:#{r}:assets_precompile"
-              invoke "assets:#{r}:upload_to_s3"
+              invoke "assets:#{r}:upload"
             end
           end
         end
       end
 
       task :reverting do
+        # invoke "deploy:#{target}:#{r}:revert_release"
       end
 
       task :publishing do
@@ -57,12 +107,17 @@ namespace :deploy do
       end
 
       task :finishing do
+        repos.map do |r|
+          set :repo, r
+          invoke "deploy:#{target}:#{r}:cleanup"
+        end
       end
 
       task :finishing_rollback do
       end
 
       task :finished do
+        # log?
       end
 
       repos.each do |repo|
@@ -219,7 +274,7 @@ namespace :deploy do
           task :bundler_install do
             on roles target do
               within release_path do
-                execute :bundle, :install, "--without test", "--path vendor/bundler"
+                execute :bundle, :install, "--without=test", "--path vendor/bundler"
               end
             end
           end
@@ -242,19 +297,29 @@ namespace :deploy do
               execute :touch, current_path.join("tmp", "restart.txt")
             end
           end
+
+          # cleanup old releases
+          task :cleanup do
+            on roles target do
+              releases = capture(:ls, "-xt", releases_path).split
+              if releases.count >= fetch(:keep_releases)
+                info t(:keeping_releases, host: host.to_s, keep_releases: fetch(:keep_releases), releases: releases.count)
+                directories = (releases - releases.last(fetch(:keep_releases)))
+                if directories.any?
+                  directories_str = directories.map do |release|
+                    releases_path.join(release)
+                  end.join(" ")
+                  execute :rm, '-rf', directories_str
+                else
+                  info t(:no_old_releases, host: host.to_s, keep_releases: fetch(:keep_releases))
+                end
+              end
+            end
+          end
+
+
         end
       end
-
-  # namespace :upload do
-  #   task :all
-  #   task :easy
-  # end
-
-      # desc "upload required repos to #{target}"
-      # task :execute_easy => repos.map{|r| "#{r}:extract"}
-
-      # desc "fetch and upload required repos to #{target}"
-      # task :execute => repos.map{|r| ["git:#{r}:create_tarball", "#{r}:extract"]}.flatten
     end
   end
 end
