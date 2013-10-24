@@ -21,7 +21,7 @@ namespace :git do
         end
       end
 
-      desc "Update the repo mirror for #{repo}"
+      # Update the repo mirror for repo
       task :update_local => repo_dir do
         run_locally do
           within repo_dir do
@@ -31,7 +31,7 @@ namespace :git do
         end
       end
 
-      desc "cleanup local tarballs of #{repo}/branch"
+      # cleanup local tarballs of repo/branch
       task :cleanup_local => repo_dir do
         run_locally do
           within local_repo_dir do
@@ -40,7 +40,7 @@ namespace :git do
         end
       end
 
-      desc "tag #{repo} and push to remote"
+      # tag repo and push to remote
       task :tag => [:update_local, :cleanup_local] do
         if fetch(:tag_prefix)
           set :"#{repo}_tag", "#{fetch :tag_prefix}#{release_timestamp}"
@@ -71,7 +71,7 @@ namespace :git do
         set :"#{repo}_tarball", "#{created_tarball}.gz"
       end
 
-      desc "find latest local_tarball of #{repo} and set it to env, else create one"
+      # find latest local_tarball of repo and set it to env, else create one
       task :find_tarball do
         unless fetch(:"#{repo}_tarball")
           latest = `ls -xt #{local_repo_dir}/#{repo}_#{fetch(:branch)}_*.tar.gz`.split.first

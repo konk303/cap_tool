@@ -3,11 +3,11 @@
 namespace :assets do
 
   desc "deploy front/back assets from app server to s3"
-  task :deploy => ["front:upload_to_s3", "back:upload_to_s3"] do
+  task :deploy => ["front:upload", "back:upload"] do
     puts "assets uploaded!"
   end
 
-  desc "initialize - set varables"
+  # initialize - set varables
   task :prepare => :find_servers do
     set :front_assets_dir_prefix, fetch(:assets_prefix) ? File.join("public", fetch(:assets_prefix)) : "public"
     set :back_assets_dir_prefix, File.join("public", "assets")
@@ -29,7 +29,7 @@ namespace :assets do
 
   [:front, :back].each do |repo|
     namespace repo do
-      desc "find latest release for #{repo}"
+      # find latest release for repo
       task :find_latest_release => :prepare do
         set :repo, repo
         on primary repo do
@@ -42,7 +42,7 @@ namespace :assets do
         end
       end
 
-      desc "create tarball of assets for #{repo}"
+      # create tarball of assets for repo
       task :create_tarball => :find_latest_release do
         on primary repo do
           execute :mkdir, "-pv", fetch(:tmp_dir)
@@ -52,7 +52,7 @@ namespace :assets do
         end
       end
 
-      desc "download tarball of assets into tmp"
+      # download tarball of assets into tmp
       task :download_tarball => :create_tarball do
         run_locally do
           execute :mkdir, "-pv", fetch(:tmp_dir)
@@ -62,7 +62,7 @@ namespace :assets do
         end
       end
 
-      desc "extract tarball"
+      # extract tarball
       task :extract_tarball => :download_tarball do
         run_locally do
           execute :mkdir, "-pv", fetch(:"local_#{repo}_dir")
@@ -73,7 +73,7 @@ namespace :assets do
       end
 
       desc "upload to S3"
-      task :upload_to_s3 => :extract_tarball do
+      task :upload => :extract_tarball do
         run_locally do
           AWS.config(fetch(:s3_config)[:config])
           s3 = AWS::S3.new

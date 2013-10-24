@@ -11,7 +11,8 @@ namespace :deploy do
 
   targets.each do |target, repos|
     namespace target do
-      task :default => [:starting, :updating, :publishing] do
+      desc "deploy latest codes to #{target}, and restart the server"
+      task :normal => [:starting, :updating, :publishing] do
         puts "done!"
       end
 
@@ -27,6 +28,7 @@ namespace :deploy do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
+          invoke "git:#{r}:find_tarball"
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
           unless r == :lws_framework
@@ -47,8 +49,6 @@ namespace :deploy do
       task :publishing do
         repos.map do |r|
           set :repo, r
-          # invoke :find_servers
-          # set_release_path("201310241322")
           invoke "deploy:#{target}:#{r}:symlink:release"
           unless [:batch, :lws_framework].include? r
             invoke "deploy:#{target}:#{r}:restart"
@@ -67,22 +67,22 @@ namespace :deploy do
 
       repos.each do |repo|
         namespace repo do
-          desc "upload tarball of #{repo} to releases"
+          # upload tarball of repo to releases
           task :create_release => "create_release:extract" do
             puts "created new dir #{release_path}"
           end
 
           namespace :create_release do
-            desc "upload local tarball of #{repo} to #{target}"
-            task :upload => [:check, "git:#{repo}:find_tarball"] do
+            # upload local tarball of repo to target
+            task :upload do
               on roles target do
                 execute :mkdir, "-pv", fetch(:tmp_dir)
                 upload! fetch(:"#{repo}_tarball"), fetch(:tmp_dir)
               end
             end
 
-            desc "extract uploaded tarball of #{repo} to #{target}"
-            task :extract => [:upload, :new_release_path] do
+            # extract uploaded tarball of repo to target
+            task :extract => :upload do
               on roles target do
                 within fetch(:tmp_dir) do
                   execute :mkdir, "-pv", release_path
@@ -93,8 +93,8 @@ namespace :deploy do
             end
           end
 
-          desc 'Check required files and directories exist'
-          task :check => [:find_servers] do
+          # Check required files and directories exist
+          task :check => :find_servers do
             invoke "git:#{repo}:find_tarball"
             invoke "deploy:#{target}:#{repo}:check:directories"
             invoke "deploy:#{target}:#{repo}:check:linked_dirs"
@@ -103,14 +103,14 @@ namespace :deploy do
           end
 
           namespace :check do
-            desc 'Check shared and release directories exist'
+            # Check shared and release directories exist
             task :directories do
               on roles target do
                 execute :mkdir, '-pv', shared_path, releases_path
               end
             end
 
-            desc 'Check directories to be linked exist in shared'
+            # Check directories to be linked exist in shared
             task :linked_dirs do
               next unless any? :linked_dirs
               on roles target do
@@ -118,7 +118,7 @@ namespace :deploy do
               end
             end
 
-            desc 'Check directories of files to be linked exist in shared'
+            # Check directories of files to be linked exist in shared
             task :make_linked_dirs do
               next unless any? :linked_files
               on roles target do |host|
@@ -126,7 +126,7 @@ namespace :deploy do
               end
             end
 
-            desc 'Check files to be linked exist in shared'
+            # Check files to be linked exist in shared
             task :linked_files do
               next unless any? :linked_files
               on roles target do |host|
@@ -141,7 +141,7 @@ namespace :deploy do
           end
 
           namespace :symlink do
-            desc 'Symlink release to current'
+            # Symlink release to current
             task :release do
               on roles target do
                 execute :rm, '-rf', current_path
@@ -149,7 +149,7 @@ namespace :deploy do
               end
             end
 
-            desc 'Symlink files and directories from shared to release'
+            # Symlink files and directories from shared to release
             task :shared do
               invoke "deploy:#{target}:#{repo}:symlink:linked_files"
               invoke "deploy:#{target}:#{repo}:symlink:linked_dirs"
@@ -158,7 +158,7 @@ namespace :deploy do
               end
             end
 
-            desc "Symlink lws_framework"
+            # Symlink lws_framework
             task :lws_framework => "lws_framework:create_release" do
               on roles target do
                 target_dir = release_path.join("vendor", "gems", "lws_framework")
@@ -173,8 +173,8 @@ namespace :deploy do
               end
             end
 
-            desc 'Symlink linked directories'
-            task :linked_dirs => [:check, :new_release_path] do
+            # Symlink linked directories
+            task :linked_dirs do
               next unless any? :linked_dirs
               on roles target do
                 # `shared/bundler`は`release_path/vendor/bundler`にsymlinkする
@@ -196,8 +196,8 @@ namespace :deploy do
               end
             end
 
-            desc 'Symlink linked files'
-            task :linked_files => [:check, :new_release_path] do
+            # Symlink linked files
+            task :linked_files do
               next unless any? :linked_files
               on roles target do
                 execute :mkdir, '-pv', linked_file_dirs(release_path)

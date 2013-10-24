@@ -12,8 +12,8 @@ namespace :deploy do
   targets.each do |target, repos|
     namespace target do
       namespace :misc do
-        desc "create extra tmp dirs for SBITIMR001, `app-XX/var/SBITIMR001/` and `/var/tmp/lws/XX/SBITIMR001`"
-        task :create_img_tmp_dir => :find_servers do
+        # create extra tmp dirs for SBITIMR001, `app-XX/var/SBITIMR001/` and `/var/tmp/lws/XX/SBITIMR001`
+        task :create_img_tmp_dir do
           on roles target do
             dir_prefix = deploy_path.sub(/.*-(\d+)$/){$1}
             ["SBITIMR001"].each do |dir_name|
@@ -32,8 +32,8 @@ namespace :deploy do
         repos.each do |repo|
           next if repo == :lws_framework
           namespace repo do
-            desc "override Gemfile to use symlinked lws_framework"
-            task :modify_gemfile => :find_servers do
+            # override Gemfile to use symlinked lws_framework
+            task :modify_gemfile do
               on roles target do
                 gemfile = capture :cat, release_path.join("Gemfile")
                 if [:front, :back].include? repo
@@ -48,8 +48,8 @@ gem 'lws_extern', :path => 'vendor/gems/lws_framework/lws_extern'")
               end
             end
 
-            desc "replace files in svn repo"
-            task :replace_files_from_svn => [:find_servers] do
+            # replace files in svn repo
+            task :replace_files_from_svn do
               env = fetch(:stage)[0, 2]
               stage = fetch(:stage)[2,2]
               config_path = (repo == :batch ? release_path.join("engine") : release_path).join("config")
