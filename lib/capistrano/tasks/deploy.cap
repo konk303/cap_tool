@@ -16,12 +16,16 @@ namespace :deploy do
   targets.each do |target, repos|
     namespace target do
       task :starting do
-        repos.map{|r| invoke "deploy:#{target}:#{r}:check"}
+        repos.map do |r|
+          set :repo, r
+          invoke "deploy:#{target}:#{r}:check"
+        end
         invoke "deploy:#{target}:misc:create_img_tmp_dir"
       end
 
-      task :updating do
+      task :updating => :starting do
         repos.map do |r|
+          set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
@@ -47,7 +51,7 @@ namespace :deploy do
           namespace :create_release do
             desc "upload local tarball of #{repo} to #{target}"
             task :upload => [:check, "git:#{repo}:find_tarball"] do
-              on roles(target) do
+              on roles target do
                 execute :mkdir, "-pv", fetch(:tmp_dir)
                 upload! fetch(:"#{repo}_tarball"), fetch(:tmp_dir)
               end
@@ -55,7 +59,7 @@ namespace :deploy do
 
             desc "extract uploaded tarball of #{repo} to #{target}"
             task :extract => [:upload, :new_release_path] do
-              on roles(target) do
+              on roles target do
                 within fetch(:tmp_dir) do
                   execute :mkdir, "-pv", release_path
                   execute :tar, "-xzf", File.basename(fetch :"#{repo}_tarball"), "-C", release_path
@@ -67,7 +71,6 @@ namespace :deploy do
 
           desc 'Check required files and directories exist'
           task :check => [:find_servers] do
-            set :repo, repo
             invoke "git:#{repo}:find_tarball"
             invoke "deploy:#{target}:#{repo}:check:directories"
             invoke "deploy:#{target}:#{repo}:check:linked_dirs"
@@ -133,9 +136,6 @@ namespace :deploy do
 
             desc "Symlink lws_framework"
             task :lws_framework => "lws_framework:create_release" do
-              # env.repoが変わっていた場合用に再実行
-              set :repo, repo
-
               on roles target do
                 target_dir = release_path.join("vendor", "gems", "lws_framework")
                 source = fetch(:lws_framework_release_path)
@@ -193,7 +193,7 @@ namespace :deploy do
           end
 
           task :bundler_install do
-            on roles task do
+            on roles target do
               within release_path do
                 execute :bundle, :install, "--without test", "--path vendor/bundler"
               end
@@ -201,7 +201,7 @@ namespace :deploy do
           end
 
           task :assets_precompile do
-            on roles task do
+            on roles target do
               within release_path do
                 execute :bundle, :exec, :rake, "assets:clean"
                 execute :bundle, :exec, :rake, "assets:precompile"

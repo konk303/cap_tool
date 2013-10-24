@@ -14,14 +14,14 @@ namespace :infos do
     namespace target do
       desc "uname #{target } servers and quit"
       task uname: :find_servers do
-        on roles(target), in: :sequence do
+        on roles target, in: :sequence do
           capture "uname -a"
         end
       end
 
       desc "uptime #{target } servers and quit"
       task uptime: :find_servers do
-        on roles(target), in: :sequence do
+        on roles target, in: :sequence do
           capture "uptime"
         end
       end
@@ -33,7 +33,7 @@ namespace :infos do
       desc "tail log/* of #{target}"
       task tail: :find_servers do
         set :repo, target
-        on roles(target) do
+        on roles target do
           capture :tail, "-f", current_path.join("log", "*")
         end
       end

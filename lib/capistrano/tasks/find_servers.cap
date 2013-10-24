@@ -5,7 +5,7 @@ task :find_servers do
   # gatewayがない場合は手動定義に任せる
   next unless roles(:gateway).any?
 
-  on primary(:gateway) do
+  on primary :gateway do
     servers = capture(:cat, "/etc/hosts").split(/\r?\n/).map{|l| l.split("\t").last}
     roles = {
       :front => %r{ecweb-front-},

@@ -50,9 +50,6 @@ gem 'lws_extern', :path => 'vendor/gems/lws_framework/lws_extern'")
 
             desc "replace files in svn repo"
             task :replace_files_from_svn => [:find_servers] do
-              set :repo, repo
-              set :back_release_path, releases_path.join("201309090844")
-
               env = fetch(:stage)[0, 2]
               stage = fetch(:stage)[2,2]
               config_path = (repo == :batch ? release_path.join("engine") : release_path).join("config")

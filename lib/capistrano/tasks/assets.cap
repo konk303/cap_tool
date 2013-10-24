@@ -32,7 +32,7 @@ namespace :assets do
       desc "find latest release for #{repo}"
       task :find_latest_release => :prepare do
         set :repo, repo
-        on primary(repo) do
+        on primary repo do
           releases = capture(:ls, "-xt", releases_path).split
           set :"latest_#{repo}_path", releases_path.join(releases.first)
         end
@@ -40,7 +40,7 @@ namespace :assets do
 
       desc "create tarball of assets for #{repo}"
       task :create_tarball => :find_latest_release do
-        on primary(repo) do
+        on primary repo do
           execute :mkdir, "-pv", fetch(:tmp_dir)
           within fetch(:"latest_#{repo}_path").join(fetch(:"#{repo}_assets_dir_prefix")) do
             execute :tar, "-czf", fetch(:"#{repo}_tarball"), "."
@@ -53,7 +53,7 @@ namespace :assets do
         run_locally do
           execute :mkdir, "-pv", fetch(:tmp_dir)
         end
-        on primary(repo) do
+        on primary repo do
           download!(fetch(:"#{repo}_tarball"), fetch(:"#{repo}_tarball"))
         end
       end
