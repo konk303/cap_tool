@@ -35,7 +35,7 @@ namespace :git do
       task :cleanup_local => repo_dir do
         run_locally do
           within local_repo_dir do
-            execute :rm, "-f", "#{repo}_#{fetch(:branch)}_*.tar.gz"
+            execute :rm, "-rf", "#{repo}_#{fetch(:branch)}_*.tar.gz"
           end
         end
       end

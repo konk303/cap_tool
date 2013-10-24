@@ -59,6 +59,7 @@ namespace :deploy do
                 within fetch(:tmp_dir) do
                   execute :mkdir, "-pv", release_path
                   execute :tar, "-xzf", File.basename(fetch :"#{repo}_tarball"), "-C", release_path
+                  execute :rm, "-rf", File.basename(fetch :"#{repo}_tarball")
                 end
               end
             end
