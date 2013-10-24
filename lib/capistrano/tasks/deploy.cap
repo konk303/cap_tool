@@ -2,19 +2,19 @@
 
 namespace :deploy do
 
-  # namespace :upload do
-  #   task :all
-  #   task :easy
-  # end
-
   targets = {
     :front => [:lws_framework, :front],
     :frontmobile => [:lws_framework, :front],
     :back => [:lws_framework, :back],
     :batch => [:lws_framework, :batch]
   }
+
   targets.each do |target, repos|
     namespace target do
+      task :default => [:starting, :updating, :publishing] do
+        puts "done!"
+      end
+
       task :starting do
         repos.map do |r|
           set :repo, r
@@ -23,7 +23,7 @@ namespace :deploy do
         invoke "deploy:#{target}:misc:create_img_tmp_dir"
       end
 
-      task :updating => :starting do
+      task :updating do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
@@ -39,6 +39,30 @@ namespace :deploy do
             end
           end
         end
+      end
+
+      task :reverting do
+      end
+
+      task :publishing do
+        repos.map do |r|
+          set :repo, r
+          # invoke :find_servers
+          # set_release_path("201310241322")
+          invoke "deploy:#{target}:#{r}:symlink:release"
+          unless [:batch, :lws_framework].include? r
+            invoke "deploy:#{target}:#{r}:restart"
+          end
+        end
+      end
+
+      task :finishing do
+      end
+
+      task :finishing_rollback do
+      end
+
+      task :finished do
       end
 
       repos.each do |repo|
@@ -118,7 +142,7 @@ namespace :deploy do
 
           namespace :symlink do
             desc 'Symlink release to current'
-            task :release => [:check, :new_release_path] do
+            task :release do
               on roles target do
                 execute :rm, '-rf', current_path
                 execute :ln, '-s', release_path, current_path
@@ -212,8 +236,19 @@ namespace :deploy do
           task :new_release_path do
             set_release_path
           end
+
+          task :restart do
+            on roles(target), in: :sequence, wait: 5 do
+              execute :touch, current_path.join("tmp", "restart.txt")
+            end
+          end
         end
       end
+
+  # namespace :upload do
+  #   task :all
+  #   task :easy
+  # end
 
       # desc "upload required repos to #{target}"
       # task :execute_easy => repos.map{|r| "#{r}:extract"}

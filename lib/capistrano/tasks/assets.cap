@@ -33,8 +33,12 @@ namespace :assets do
       task :find_latest_release => :prepare do
         set :repo, repo
         on primary repo do
-          releases = capture(:ls, "-xt", releases_path).split
-          set :"latest_#{repo}_path", releases_path.join(releases.first)
+          if fetch(:"#{repo}_release_path")
+            set :"latest_#{repo}_path", fetch(:"#{repo}_release_path")
+          else
+            releases = capture(:ls, "-xt", releases_path).split
+            set :"latest_#{repo}_path", releases_path.join(releases.first)
+          end
         end
       end
 
