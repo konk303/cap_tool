@@ -1,8 +1,8 @@
 set :stage, :ctsp
 
 server(fetch(:servers)[:ct],
-  user: fetch(:accounts)[:ct_root_account][:user],
-  password: fetch(:accounts)[:ct_root_account][:password],
+  user: fetch(:accounts)[:ct_server_account][:user],
+  password: fetch(:accounts)[:ct_server_account][:password],
   roles: %w{front back frontmobile}
   )
 

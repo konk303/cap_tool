@@ -9,18 +9,25 @@ namespace :deploy do
     :batch => [:lws_framework, :batch]
   }
 
+  desc "deploy latest codes, and restart the servers"
+  task :all => "all:restart"
+
   namespace :all do
     desc "deploy latest codes, stop before restart"
-    task :deploy => targets.map{|k, v| "#{k}:deploy"} do
+    task :only_deploy => targets.map{|k, v| "#{k}:only_deploy"} do
       puts "deploy all done!"
     end
 
     desc "deploy already created tarball, stop before restart"
-    task :deploy_easy => targets.map{|k, v| "#{k}:deploy_easy"} do
+    task :only_deploy_easy => targets.map{|k, v| "#{k}:only_deploy_easy"} do
       puts "easy deploy all done!"
     end
 
-    desc "deploy latest codes, and restart the servers"
+    desc "do restart"
+    task :finalize => targets.map{|k, v| "#{k}:finalize"} do
+      puts "finalize done!"
+    end
+
     task :restart => targets.map{|k, v| "#{k}:restart"} do
       puts "restart all done!"
     end
@@ -29,23 +36,28 @@ namespace :deploy do
     task :restart_easy => targets.map{|k, v| "#{k}:restart_easy"} do
       puts "deploy all done!"
     end
-
-    task :default => :restart
   end
 
   targets.each do |target, repos|
+    desc "deploy latest codes to #{target}, and restart the server"
+    task target => "#{target}:restart"
+
     namespace target do
       desc "deploy latest codes to #{target}, stop before restart."
-      task :deploy => [:starting, :updating] do
+      task :only_deploy => [:starting, :updating] do
         puts "deploy done!"
       end
 
       desc "deploy already created tarball to #{target}, stop before restart."
-      task :deploy_easy => [:set_easy, :starting, :updating] do
+      task :only_deploy_easy => [:set_easy, :starting, :updating] do
         puts "deploy easy done!"
       end
 
-      desc "deploy latest codes to #{target}, and restart the server"
+      desc "do restart"
+      task :finalize => [:find_servers, :publishing] do
+        puts "finalize done!"
+      end
+
       task :restart => [:deploy, :publishing, :finishing, :finished] do
         puts "restart done!"
       end
@@ -54,8 +66,6 @@ namespace :deploy do
       task :restart_easy => [:deploy_easy, :publishing, :finishing, :finished] do
         puts "restart easy done!"
       end
-
-      task :default => :restart
 
       task :starting do
         repos.map do |r|
@@ -73,6 +83,7 @@ namespace :deploy do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
+          # binding.pry
           if fetch(:easy_mode)
             invoke "git:#{r}:find_tarball"
           else
@@ -99,6 +110,7 @@ namespace :deploy do
       task :publishing do
         repos.map do |r|
           set :repo, r
+          invoke "deploy:#{target}:#{r}:latest_release_path"
           invoke "deploy:#{target}:#{r}:symlink:release"
           unless [:batch, :lws_framework].include? r
             invoke "deploy:#{target}:#{r}:restart"
@@ -150,7 +162,6 @@ namespace :deploy do
 
           # Check required files and directories exist
           task :check => :find_servers do
-            invoke "git:#{repo}:find_tarball"
             invoke "deploy:#{target}:#{repo}:check:directories"
             invoke "deploy:#{target}:#{repo}:check:linked_dirs"
             invoke "deploy:#{target}:#{repo}:check:make_linked_dirs"
@@ -292,6 +303,20 @@ namespace :deploy do
             set_release_path
           end
 
+          task :latest_release_path do
+            on primary target do
+              latest_release = capture(:ls, "-xt", releases_path).split.first
+              set_release_path latest_release
+            end
+          end
+
+          task :last_release_path do
+            on primay target do
+              last_release = capture(:ls, "-xt", releases_path).split[1]
+              set_release_path last_release
+            end
+          end
+
           task :restart do
             on roles(target), in: :sequence, wait: 5 do
               execute :touch, current_path.join("tmp", "restart.txt")
@@ -304,7 +329,7 @@ namespace :deploy do
               releases = capture(:ls, "-xt", releases_path).split
               if releases.count >= fetch(:keep_releases)
                 info t(:keeping_releases, host: host.to_s, keep_releases: fetch(:keep_releases), releases: releases.count)
-                directories = (releases - releases.last(fetch(:keep_releases)))
+                directories = (releases - releases.first(fetch(:keep_releases)))
                 if directories.any?
                   directories_str = directories.map do |release|
                     releases_path.join(release)

@@ -21,7 +21,7 @@ namespace :svn do
         end
       end
 
-      desc "Update the repo for #{env}"
+      # Update the repo for env
       task :update_local => repo_dir do
         run_locally do
           within repo_dir do
