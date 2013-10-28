@@ -56,7 +56,8 @@ gem 'lws_extern', :path => 'vendor/gems/lws_framework/lws_extern'")
 
               invoke "svn:#{env}:update_local"
               on roles target do
-                Dir.glob(File.join(fetch(:tmp_dir), "repos", "svn", env, repo.to_s, stage, "*")).each do |file|
+                svn_dir = target == :frontmobile ? "front_mobile" : target.to_s
+                Dir.glob(File.join(fetch(:tmp_dir), "repos", "svn", env, svn_dir, stage, "*")).each do |file|
                   file_name = File.basename(file)
                   remote_files = case file_name
                                  when "deploy_configs.yml", "database.yml", "biwd_database.yml", "mail.yml"
