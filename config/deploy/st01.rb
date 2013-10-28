@@ -13,4 +13,4 @@ set :s3_config, fetch(:s3_accounts)[:test_cnt_org]
 
 set :branch, :develop
 # already tagged in ctcs?
-# set :tag_prefix, "ST_DEPLOY"
+set :tag_prefix, "ST_DEPLOY"
