@@ -58,12 +58,12 @@ namespace :deploy do
         puts "finalize done!"
       end
 
-      task :restart => [:deploy, :publishing, :finishing, :finished] do
+      task :restart => [:only_deploy, :publishing, :finishing, :finished] do
         puts "restart done!"
       end
 
       desc "deploy already created tarball to #{target}, and restart the server"
-      task :restart_easy => [:deploy_easy, :publishing, :finishing, :finished] do
+      task :restart_easy => [:only_deploy_easy, :publishing, :finishing, :finished] do
         puts "restart easy done!"
       end
 
