@@ -16,14 +16,14 @@ namespace :assets do
     local_assets_dir = File.join(fetch(:tmp_dir), "#{fetch(:stage)}_assets")
     set :local_front_dir, File.join(local_assets_dir, "front")
     set :local_back_dir, File.join(local_assets_dir, "back")
-    set :front_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_front_assets.tar.gz")
-    set :back_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_back_assets.tar.gz")
+    set :front_assets_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_front_assets.tar.gz")
+    set :back_assets_tarball, File.join(fetch(:tmp_dir), "#{fetch(:stage)}_back_assets.tar.gz")
 
     # rm local tmp files
     run_locally do
       execute :rm, "-rf", local_assets_dir
-      execute :rm, "-rf", fetch(:front_tarball)
-      execute :rm, "-rf", fetch(:back_tarball)
+      execute :rm, "-rf", fetch(:front_assets_tarball)
+      execute :rm, "-rf", fetch(:back_assets_tarball)
     end
   end
 
@@ -36,7 +36,7 @@ namespace :assets do
         on primary repo do
           execute :mkdir, "-pv", fetch(:tmp_dir)
           within release_path.join(fetch(:"#{repo}_assets_dir_prefix")) do
-            execute :tar, "-czf", fetch(:"#{repo}_tarball"), "."
+            execute :tar, "-czf", fetch(:"#{repo}_assets_tarball"), "."
           end
         end
       end
@@ -47,7 +47,7 @@ namespace :assets do
           execute :mkdir, "-pv", fetch(:tmp_dir)
         end
         on primary repo do
-          download!(fetch(:"#{repo}_tarball"), fetch(:"#{repo}_tarball"))
+          download!(fetch(:"#{repo}_assets_tarball"), fetch(:"#{repo}_assets_tarball"))
         end
       end
 
@@ -56,7 +56,7 @@ namespace :assets do
         run_locally do
           execute :mkdir, "-pv", fetch(:"local_#{repo}_dir")
           within fetch(:"local_#{repo}_dir") do
-            execute :tar, "-xzf", fetch(:"#{repo}_tarball")
+            execute :tar, "-xzf", fetch(:"#{repo}_assets_tarball")
           end
         end
       end

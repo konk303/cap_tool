@@ -97,7 +97,9 @@ namespace :deploy do
             invoke "deploy:#{target}:misc:#{r}:replace_files_from_svn"
             unless r == :batch
               invoke "deploy:#{target}:#{r}:assets_precompile"
-              invoke "assets:#{r}:upload"
+              unless target == :frontmobile
+                invoke "assets:#{r}:upload"
+              end
             end
           end
         end
