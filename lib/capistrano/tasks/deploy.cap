@@ -42,6 +42,15 @@ namespace :deploy do
     task :restart_easy => targets.map{|k, v| "#{k}:restart_easy"} do
       puts "deploy all done!"
     end
+
+    desc "rollback symlink to last released"
+    task :rollback => targets.map{|k, v| "#{k}:rollback"} do
+      if messages = fetch(:rollback_messages)
+        puts "=== operation result"
+        messages.each{|m| puts "  #{m}"}
+      end
+      puts "rollback all done!"
+    end
   end
 
   targets.each do |target, repos|
@@ -76,6 +85,11 @@ namespace :deploy do
       desc "deploy already created tarball to #{target}, and restart the server"
       task :restart_easy => [:only_deploy_easy, :publishing, :finishing, :finished] do
         puts "restart easy done!"
+      end
+
+      desc "rollback symlink of #{target} to last released"
+      task :rollback => [:find_servers, :reverting, :publishing, :finishing_rollback] do
+        puts "rollback done!"
       end
 
       task :starting do
@@ -116,7 +130,13 @@ namespace :deploy do
       end
 
       task :reverting do
-        # invoke "deploy:#{target}:#{r}:revert_release"
+        repos.map do |r|
+          set :repo, r
+          invoke "deploy:#{target}:#{r}:last_release_path"
+          set(:rollback_messages, []) unless fetch(:rollback_messages)
+          fetch(:rollback_messages) << "symlinking #{target}:#{current_path} to #{release_path}"
+          p "symlinking #{target}:#{current_path} to #{release_path}"
+        end
       end
 
       task :publishing do
@@ -138,6 +158,10 @@ namespace :deploy do
       end
 
       task :finishing_rollback do
+        repos.map do |r|
+          set :repo, r
+          invoke "deploy:#{target}:#{r}:cleanup_rollback"
+        end
       end
 
       task :finished do
@@ -323,7 +347,7 @@ namespace :deploy do
           end
 
           task :last_release_path do
-            on primay target do
+            on primary target do
               last_release = capture(:ls, "-xt", releases_path).split[1]
               set_release_path last_release
             end
@@ -354,7 +378,21 @@ namespace :deploy do
             end
           end
 
-
+          task :cleanup_rollback do
+            on roles target do
+              last_release = capture(:ls, '-xt', releases_path).split.first
+              last_release_path = releases_path.join(last_release)
+              if test "[ `readlink #{current_path}` != #{last_release_path} ]"
+                tarball = deploy_path.join("releases", "rolled-back-release-#{repo}-#{last_release}.tar.gz")
+                execute :tar, '-czf',
+                tarball, last_release_path
+                execute :rm, '-rf', last_release_path
+              end
+              set(:rollback_messages, []) unless fetch(:rollback_messages)
+              fetch(:rollback_messages) << "backuped  #{target}:#{repo}/#{last_release} to #{tarball}"
+              p "backuped  #{target}:#{repo}/#{last_release} to #{tarball}"
+            end
+          end
         end
       end
     end
