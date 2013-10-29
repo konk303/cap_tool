@@ -15,6 +15,9 @@ namespace :deploy do
   namespace :all do
     desc "deploy latest codes, stop before restart"
     task :only_deploy => targets.map{|k, v| "#{k}:only_deploy"} do
+      if messages = fetch(:git_tag_messages)
+        messages.each{|m| puts m}
+      end
       puts "deploy all done!"
     end
 
@@ -29,6 +32,9 @@ namespace :deploy do
     end
 
     task :restart => targets.map{|k, v| "#{k}:restart"} do
+      if messages = fetch(:git_tag_messages)
+        messages.each{|m| puts m}
+      end
       puts "restart all done!"
     end
 
@@ -44,12 +50,12 @@ namespace :deploy do
 
     namespace target do
       desc "deploy latest codes to #{target}, stop before restart."
-      task :only_deploy => [:starting, :updating] do
+      task :only_deploy => [:fetch_repo, :starting, :updating] do
         puts "deploy done!"
       end
 
       desc "deploy already created tarball to #{target}, stop before restart."
-      task :only_deploy_easy => [:set_easy, :starting, :updating] do
+      task :only_deploy_easy => [:starting, :updating] do
         puts "deploy easy done!"
       end
 
@@ -75,8 +81,11 @@ namespace :deploy do
         invoke "deploy:#{target}:misc:create_img_tmp_dir"
       end
 
-      task :set_easy do
-        set :easy_mode, true
+      task :fetch_repo do
+        repos.map do |r|
+          set :repo, r
+          invoke "git:#{r}:create_tarball"
+        end
       end
 
       task :updating do
@@ -84,11 +93,7 @@ namespace :deploy do
           set :repo, r
           invoke "deploy:#{target}:#{r}:new_release_path"
           # binding.pry
-          if fetch(:easy_mode)
-            invoke "git:#{r}:find_tarball"
-          else
-            invoke "git:#{r}:create_tarball"
-          end
+          invoke "git:#{r}:find_tarball"
           invoke "deploy:#{target}:#{r}:create_release"
           invoke "deploy:#{target}:#{r}:symlink:shared"
           unless r == :lws_framework
@@ -124,6 +129,7 @@ namespace :deploy do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:cleanup"
+          invoke "git:#{r}:tag"
         end
       end
 

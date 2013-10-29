@@ -40,29 +40,24 @@ namespace :git do
         end
       end
 
-      # tag repo and push to remote
-      task :tag => [:update_local, :cleanup_local] do
+      # decide the version to upload
+      task :set_revision => [:update_local, :cleanup_local] do
+        set :"#{repo}_revision", `cd #{repo_dir} && git rev-parse origin/#{fetch :branch}`.split.first
         if fetch(:tag_prefix)
           set :"#{repo}_tag", "#{fetch :tag_prefix}#{release_timestamp}"
-          run_locally do
-            within repo_dir do
-              execute :git, :tag, fetch(:"#{repo}_tag"), "origin/#{fetch :branch}"
-              execute :git, :push, '--tags'
-            end
-          end
         else
           set :"#{repo}_tag", "origin/#{fetch :branch}"
         end
       end
 
       desc "create tarball of the branch for #{repo}"
-      task :create_tarball => :tag do
+      task :create_tarball => :set_revision do
         created_tarball = File.join(local_repo_dir, "#{repo}_#{fetch(:branch)}_#{release_timestamp}.tar")
         run_locally do
           within repo_dir do
-            execute :git, :archive, fetch(:"#{repo}_tag"), "> #{created_tarball}"
+            execute :git, :archive, fetch(:"#{repo}_revision"), "> #{created_tarball}"
+            execute :echo, fetch(:"#{repo}_revision"), "> git_revision"
             execute :echo, fetch(:"#{repo}_tag"), "> git_tag"
-            execute :git, "rev-parse", fetch(:"#{repo}_tag"), "> git_revision"
             execute :tar, "-rf", created_tarball, :git_tag, :git_revision
             execute :rm, "-rf", :git_tag, :git_revision
             execute :gzip, created_tarball
@@ -80,6 +75,23 @@ namespace :git do
           else
             invoke "git:#{repo}:create_tarball"
           end
+        end
+      end
+
+      # tag repo and push to remote
+      task :tag do
+        tag = fetch(:"#{repo}_tag")
+        revision = fetch(:"#{repo}_revision")
+        if fetch(:tag_prefix) && tag && revision
+          run_locally do
+            within repo_dir do
+              execute :git, :tag, tag, revision
+              execute :git, :push, '--tags'
+            end
+          end
+          set(:git_tag_messages, []) unless fetch(:git_tag_messages)
+          fetch(:git_tag_messages) << "created tag #{tag} in #{repo}, to #{revision}"
+          puts "created tag #{tag} in #{repo}, to #{revision}"
         end
       end
     end
