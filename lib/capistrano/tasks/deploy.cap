@@ -129,7 +129,7 @@ namespace :deploy do
         repos.map do |r|
           set :repo, r
           invoke "deploy:#{target}:#{r}:cleanup"
-          invoke "git:#{r}:tag"
+          invoke "git:#{r}:push_tag"
         end
       end
 

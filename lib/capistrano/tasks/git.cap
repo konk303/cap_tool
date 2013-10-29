@@ -40,11 +40,16 @@ namespace :git do
         end
       end
 
-      # decide the version to upload
+      # decide the version to upload, tag it when needed
       task :set_revision => [:update_local, :cleanup_local] do
         set :"#{repo}_revision", `cd #{repo_dir} && git rev-parse origin/#{fetch :branch}`.split.first
         if fetch(:tag_prefix)
           set :"#{repo}_tag", "#{fetch :tag_prefix}#{release_timestamp}"
+          run_locally do
+            within repo_dir do
+              execute :git, :tag, fetch(:"#{repo}_tag"), fetch(:"#{repo}_revision")
+            end
+          end
         else
           set :"#{repo}_tag", "origin/#{fetch :branch}"
         end
@@ -78,20 +83,18 @@ namespace :git do
         end
       end
 
-      # tag repo and push to remote
-      task :tag do
+      # push tag to remote
+      task :push_tag do
         tag = fetch(:"#{repo}_tag")
-        revision = fetch(:"#{repo}_revision")
-        if fetch(:tag_prefix) && tag && revision
+        if fetch(:tag_prefix) && tag
           run_locally do
             within repo_dir do
-              execute :git, :tag, tag, revision
-              execute :git, :push, '--tags'
+              execute :git, :push, :origin, tag
             end
           end
           set(:git_tag_messages, []) unless fetch(:git_tag_messages)
-          fetch(:git_tag_messages) << "created tag #{tag} in #{repo}, to #{revision}"
-          puts "created tag #{tag} in #{repo}, to #{revision}"
+          fetch(:git_tag_messages) << "created tag #{tag} in #{repo}"
+          puts "created tag #{tag} in #{repo}"
         end
       end
     end
