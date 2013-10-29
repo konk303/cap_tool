@@ -3,7 +3,12 @@
 namespace :assets do
 
   desc "deploy front/back assets from app server to s3"
-  task :deploy => ["front:upload", "back:upload"] do
+  task :deploy => :find_servers do
+    [:front, :back].each do |repo|
+      set :repo, repo
+      invoke "deploy:#{repo}:#{repo}:latest_release_path"
+      invoke "assets:#{repo}:upload"
+    end
     puts "assets uploaded!"
   end
 
@@ -32,7 +37,6 @@ namespace :assets do
       # create tarball of assets for repo
       task :create_tarball => :prepare do
         set :repo, repo
-        invoke "deploy:#{repo}:#{repo}:latest_release_path"
         on primary repo do
           execute :mkdir, "-pv", fetch(:tmp_dir)
           within release_path.join(fetch(:"#{repo}_assets_dir_prefix")) do

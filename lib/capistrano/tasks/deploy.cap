@@ -60,7 +60,12 @@ namespace :deploy do
       end
 
       desc "do restart"
-      task :finalize => [:find_servers, :publishing] do
+      task :finalize => :find_servers do
+        repos.each do |repo|
+          set :repo, repo
+          invoke "deploy:#{target}:#{repo}:latest_release_path"
+        end
+        invoke "deploy:#{target}:publishing"
         puts "finalize done!"
       end
 
@@ -117,7 +122,6 @@ namespace :deploy do
       task :publishing do
         repos.map do |r|
           set :repo, r
-          invoke "deploy:#{target}:#{r}:latest_release_path"
           invoke "deploy:#{target}:#{r}:symlink:release"
           unless [:batch, :lws_framework].include? r
             invoke "deploy:#{target}:#{r}:restart"
