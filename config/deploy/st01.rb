@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 set :stage, :st01
 
 server(fetch(:servers)[:st],
@@ -12,5 +13,10 @@ set :assets_prefix, "01"
 set :s3_config, fetch(:s3_accounts)[:test_cnt_org]
 
 set :branch, :develop
-# already tagged in ctcs?
+# repoごとにbranchを変えたい場合は、個別に指定する。
+# 個別指定がない時は:branchが使われる。
+# == ex. lws_frameworkは:develop固定だが、他はdeploy時に使用ブランチ入力したいときは
+# set :branch_lws_framework, :develop
+# ask :branch, :develop           # default developで入力待ちに
+
 set :tag_prefix, "ST_DEPLOY"

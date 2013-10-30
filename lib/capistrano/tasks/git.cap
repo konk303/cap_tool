@@ -33,16 +33,18 @@ namespace :git do
 
       # cleanup local tarballs of repo/branch
       task :cleanup_local => repo_dir do
+        branch = fetch(:"branch_#{repo}") || fetch(:branch)
         run_locally do
           within local_repo_dir do
-            execute :rm, "-rf", "#{repo}_#{fetch(:branch)}_*.tar.gz"
+            execute :rm, "-rf", "#{repo}_#{branch}_*.tar.gz"
           end
         end
       end
 
       # decide the version to upload, tag it when needed
       task :set_revision => [:update_local, :cleanup_local] do
-        set :"#{repo}_revision", `cd #{repo_dir} && git rev-parse origin/#{fetch :branch}`.split.first
+        branch = fetch(:"branch_#{repo}") || fetch(:branch)
+        set :"#{repo}_revision", `cd #{repo_dir} && git rev-parse origin/#{branch}`.split.first
         if fetch(:tag_prefix)
           set :"#{repo}_tag", "#{fetch :tag_prefix}#{release_timestamp}"
           run_locally do
@@ -51,13 +53,14 @@ namespace :git do
             end
           end
         else
-          set :"#{repo}_tag", "origin/#{fetch :branch}"
+          set :"#{repo}_tag", "origin/#{branch}"
         end
       end
 
       desc "create tarball of the branch for #{repo}"
       task :create_tarball => :set_revision do
-        created_tarball = File.join(local_repo_dir, "#{repo}_#{fetch(:branch)}_#{release_timestamp}.tar")
+        branch = fetch(:"branch_#{repo}") || fetch(:branch)
+        created_tarball = File.join(local_repo_dir, "#{repo}_#{branch}_#{release_timestamp}.tar")
         run_locally do
           within repo_dir do
             execute :git, :archive, fetch(:"#{repo}_revision"), "> #{created_tarball}"
@@ -73,8 +76,9 @@ namespace :git do
 
       # find latest local_tarball of repo and set it to env, else create one
       task :find_tarball do
+        branch = fetch(:"branch_#{repo}") || fetch(:branch)
         unless fetch(:"#{repo}_tarball")
-          latest = `ls -xt #{local_repo_dir}/#{repo}_#{fetch(:branch)}_*.tar.gz`.split.first
+          latest = `ls -xt #{local_repo_dir}/#{repo}_#{branch}_*.tar.gz`.split.first
           if latest
             set :"#{repo}_tarball", latest
           else
